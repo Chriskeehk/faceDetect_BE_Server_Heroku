@@ -36,17 +36,11 @@ app.get('/', (req, res) => {
 })
 
 app.post('/signin', (req, res) => {
-	// bcrypt.compare("cookies", '$2a$10$6nb6hGZUTGm9aq2nh2MKOOyonovTlWFrSG5jN44hY5xVoGwMpoOr2', function(err, res) {
-	// 	console.log('first guess', res)
-	// });
-	// bcrypt.compare('testingpw', '$2a$10$6nb6hGZUTGm9aq2nh2MKOOyonovTlWFrSG5jN44hY5xVoGwMpoOr2', function(err, res) {
-	// 	console.log('second guess', res)
-	// });
 
-	for (i=0; i<= database.users.length; i++) {
+	for (i=0; i < database.users.length; i++) {
 		if (req.body.email === database.users[i].email &&
 		    req.body.password === database.users[i].password) {
-			    res.json(database.users[i]);
+			    return res.json(database.users[i]);
 		}
 	}
 	
