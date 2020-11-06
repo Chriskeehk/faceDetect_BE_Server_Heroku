@@ -25,9 +25,9 @@ app.use(bodyParser.urlencoded({extended: false}))
 app.use(bodyParser.json());
 app.use(cors());
 
-// app.get('/', (req, res) => {
-// 	res.send(database.users);
-// })
+app.get('/', (req, res) => {
+	res.send("It is working");
+})
 
 // app.post('/imageurl', (req,res) => { image.handleApiCall(req,res)})
 
