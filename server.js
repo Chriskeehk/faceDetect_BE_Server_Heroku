@@ -14,6 +14,7 @@ const db = knex({
   }
 });
 
+
 const app = express();
 
 
@@ -61,7 +62,7 @@ app.post('/register', (req, res) => {
 	if (!email || !name || !password) {
 	   return	res.status(400).json('incorrect form submission')
 	} 
-	//console.log("Start register");
+	console.log("Start register");
 	const hash = bcrypt.hashSync(password);
 		db.transaction(trx => {
 			trx.insert({
