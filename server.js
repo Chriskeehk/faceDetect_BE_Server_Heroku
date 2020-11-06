@@ -2,96 +2,135 @@ const express = require('express')
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt-nodejs');
 const cors = require('cors');
+const knex = require('knex');
+const Clarifai = require('clarifai');
+
+
+const db = knex({
+  client: 'pg',
+  connection: {
+    host : '127.0.0.1',
+    port : '5433',
+    user : 'postgres',
+    password : 'Happy_ecy!!',
+    database : 'smartbrain'
+  }
+});
 
 const app = express();
 
-const database = {
-	users: [
-		{
-			id: '123',
-			name: 'John',
-			email: 'john@gmail.com',
-			password: 'cookies',
-			entries: 10,
-			joined: new Date()
-		},
-		{
-			id: '124',
-			name: 'Sally',
-			email: 'sally@gmail.com',
-			password: 'bananas',
-			entries: 0,
-			joined: new Date()
-		}
-	]
-}
 
 // Middleware to decode 
 app.use(bodyParser.urlencoded({extended: false})) 
 app.use(bodyParser.json());
 app.use(cors());
 
-app.get('/', (req, res) => {
-	res.send(database.users);
-})
+// app.get('/', (req, res) => {
+// 	res.send(database.users);
+// })
+
+// app.post('/imageurl', (req,res) => { image.handleApiCall(req,res)})
 
 app.post('/signin', (req, res) => {
+	const {email, password} = req.body;
+	if (!email || !password) {
+	   return	res.status(400).json('incorrect form submission')
+	} 
 
-	for (i=0; i < database.users.length; i++) {
-		if (req.body.email === database.users[i].email &&
-		    req.body.password === database.users[i].password) {
-			    return res.json(database.users[i]);
-		}
-	}
-	
-	res.status(400).json('error logging in');
+	//console.log("Start signin");
+	db.select('email','hash').from('login')
+		.where('email', '=', email)
+		.then(data => {
+			const isValid = bcrypt.compareSync(password, data[0].hash);
+			if (isValid) {
+				return db.select('*').from('users')
+					.where('email', '=', email)
+					.then(user => {
+						res.json(user[0])
+					})
+					.catch(err => res.json(400).json('error logging in'))
+			} else {
+				res.status(400).json('error logging in')
+			}
+		})
+		.catch(err => res.status(400).json('error logging in'))
 	
 })
+
+
 
 app.post('/register', (req, res) => {
 	const {email, name, password} = req.body;
-	bcrypt.hash(password, null, null, function(err, hash) {
-		console.log(hash);
-	})
-	database.users.push({
-		id: '125',
-		name: name,
-		email: email,
-		password: password,
-		entries: 0,
-		joined: new Date()
-	})
-	res.json(database.users[database.users.length - 1]);
-	// res.json('success');
+	if (!email || !name || !password) {
+	   return	res.status(400).json('incorrect form submission')
+	} 
+	//console.log("Start register");
+	const hash = bcrypt.hashSync(password);
+		db.transaction(trx => {
+			trx.insert({
+				hash: hash,
+				email: email
+			})
+			.into('login')
+			.returning('email')
+			.then(loginEmail => {
+				return trx('users')
+					.returning('*')
+					.insert({
+						email: loginEmail[0],
+						name: name,
+						joined: new Date()
+					})
+					.then(user => {
+						res.json(user[0]);
+					})
+			})
+		
+			.then(trx.commit)
+			.catch(trx.rollback)
+		})
+		.catch(err => res.status(400).json('unable to register'))
+		
 })
 
 app.get('/profile/:id', (req, res) => {
 	const { id } = req.params;
 	let found = false;
-	database.users.forEach(user => {
-		if (user.id === id) {
-			found = true;
-			return res.json(user);
+	db.select('*').from('users').where({id})
+		.then(user => {
+		if (user.length) {
+			res.json(user[0])
+		} else {
+			res.status(400).json('Not found')
 		}
 	})
-	if (!found) {
-		res.status(400).json('not found');
-	}
+	.catch(err => res.status(400).json('error getting user'))
 })
 
 app.put('/image', (req, res) => {
 	const { id } = req.body;
-	let found = false;
-	database.users.forEach(user => {
-		if (user.id === id) {
-			found = true;
-			user.entries++
-			return res.json(user.entries);
-		}
+	db('users')
+	.where('id', '=', id)
+	.increment('entries',1)
+	.returning('entries')
+	.then(entries => {
+		res.json(entries[0]);
 	})
-	if (!found) {
-		res.status(400).json('not found');
-	}
+	.catch(err => res.status(400).json('unable to get entries'))
+})
+
+
+
+app.post('/imageurl', (req, res) => {
+	const app2 = new Clarifai.App({
+		 apiKey: 'c75512e42bd64032b45f220afaf0ccb7'
+	});
+	app2.models
+	.predict(Clarifai.FACE_DETECT_MODEL,req.body.input)
+	.then(data => {
+		res.json(data)
+	})
+	.catch(err => res.status(400).json('unable to work with API'))
 })
 
 // app.use(express.static(__dirname + '/public'))
@@ -100,11 +139,3 @@ app.listen(3001, () => {
 	console.log('app is running on port 3001')
 });
 
-/*
-/ --> res = this is working
-/signin   --> POST = success/fail
-/register --> POST = user
-/profile/:userId --> GET = user
-/image --> PUT --> user  // Increase user rank
-
-*/
