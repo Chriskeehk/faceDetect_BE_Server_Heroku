@@ -9,11 +9,11 @@ const Clarifai = require('clarifai');
 const db = knex({
   client: 'pg',
   connection: {
-    host : '127.0.0.1',
-    port : '5433',
-    user : 'postgres',
+    host : process.env.DATABASE_URL,
+    ssl: true,
+    // port : '5433',
+    // user : 'postgres',
     password : 'Happy_ecy!!',
-    database : 'smartbrain'
   }
 });
 
